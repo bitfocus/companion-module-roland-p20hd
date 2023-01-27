@@ -63,6 +63,7 @@ class p20hdInstance extends InstanceBase {
 
 	async destroy() {
 		if (this.socket !== undefined) {
+			this.sendCommand('QIT') //close socket
 			this.socket.destroy()
 		}
 
@@ -125,11 +126,12 @@ class p20hdInstance extends InstanceBase {
 			this.socket.on('connect', () => {
 				this.cmdPipe = []
 
-				this.sendCommmand('VER') //just request version one time
-
-				this.initPolling()
-
-				this.updateStatus('ok')
+				if (this.config.uselogin == true) {
+					this.initLoginUser();
+				}
+				else {
+					this.initCommunication();
+				}
 			})
 
 			this.socket.on('data', (receivebuffer) => {
@@ -137,6 +139,13 @@ class p20hdInstance extends InstanceBase {
 
 				// ACKs are sent at the end of the stream result, we should have 1 command to 1 ack
 				if (pipeline.includes(this.CONTROL_ACK)) {
+					if (this.lastSentCommand == 'USR') {
+						this.initLoginPassword();
+					}
+					else if (this.lastSentCommand == 'PWD') {
+						this.initCommunication();
+					}
+
 					this.lastReturnedCommand = this.cmdPipeNext()
 					if (pipeline.length == 1) pipeline = ''
 				}
@@ -169,6 +178,22 @@ class p20hdInstance extends InstanceBase {
 		}
 
 		return return_cmd
+	}
+
+	initLoginUser() {
+		this.lastSentCommand = 'USR';
+		this.sendCommand(`USR:${this.config.username}`); //send username
+	}
+
+	initLoginPassword() {
+		this.lastSentCommand = 'PSS';
+		this.sendCommand(`PSS:${this.config.password}`); //send password
+	}
+
+	initCommunication() {
+		this.sendCommand('VER') //just request version one time
+		this.initPolling()
+		this.updateStatus('ok')
 	}
 
 	processResponse(response) {
@@ -360,7 +385,7 @@ class p20hdInstance extends InstanceBase {
 
 		this.checkFeedbacks()
 	}
-	sendCommmand(cmd) {
+	sendCommand(cmd) {
 		if (cmd !== undefined) {
 			if (this.socket !== undefined && this.socket.isConnected) {
 				this.cmdPipe.push(cmd)
@@ -403,7 +428,7 @@ class p20hdInstance extends InstanceBase {
 	sendPollCommand(cmd) {
 		if (this.socket !== undefined && this.socket.isConnected) {
 			if(!this.cmdPipe.includes(cmd)) { // No need to flood the buffer with these
-				this.sendCommmand(cmd)
+				this.sendCommand(cmd)
 			}
 		}
 	}
@@ -433,7 +458,27 @@ class p20hdInstance extends InstanceBase {
 				max: 30000,
 				default: 1000,
 				width: 3,
-			}
+			},
+			{
+				type: 'checkbox',
+				id: 'uselogin',
+				label: 'Use Username and Password',
+				default: false
+			},
+			{
+				type: 'textinput',
+				id: 'username',
+				label: 'Username',
+				width: 6,
+				default: 'admin',
+			},
+			{
+				type: 'textinput',
+				id: 'password',
+				label: 'Password',
+				width: 6,
+				default: 'admin',
+			},
 		]
 	}
 
@@ -444,7 +489,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('REC')
+					this.sendCommand('REC')
 				},
 			},
 			rec_stop: {
@@ -452,7 +497,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('RES')
+					this.sendCommand('RES')
 				},
 			},
 			playback_start: {
@@ -460,7 +505,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('PLY')
+					this.sendCommand('PLY')
 				},
 			},
 			playback_pause: {
@@ -468,7 +513,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('PUS')
+					this.sendCommand('PUS')
 				},
 			},
 			jog_forward: {
@@ -476,7 +521,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('JOG:1')
+					this.sendCommand('JOG:1')
 				},
 			},
 			jog_reverse: {
@@ -484,7 +529,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('JOG:-1')
+					this.sendCommand('JOG:-1')
 				},
 			},
 			shuttle: {
@@ -499,7 +544,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('SHT:' + event.options.speed)
+					this.sendCommand('SHT:' + event.options.speed)
 				},
 			},
 			playback_speed: {
@@ -515,7 +560,7 @@ class p20hdInstance extends InstanceBase {
 					}
 				],
 				callback: async (event) => {
-					this.sendCommmand('SPC:' + event.options.speed)
+					this.sendCommand('SPC:' + event.options.speed)
 				},
 			},
 			speed_range: {
@@ -533,7 +578,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('SPR:' + event.options.state)
+					this.sendCommand('SPR:' + event.options.state)
 				},
 			},
 			in_point_settings: {
@@ -551,7 +596,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('MIN:' + event.options.setting)
+					this.sendCommand('MIN:' + event.options.setting)
 				},
 			},
 			out_point_settings: {
@@ -569,7 +614,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('MOT:' + event.options.setting)
+					this.sendCommand('MOT:' + event.options.setting)
 				},
 			},
 			clip_create: {
@@ -587,7 +632,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('MCL:' + event.options.setting)
+					this.sendCommand('MCL:' + event.options.setting)
 				},
 			},
 			clip_select: {
@@ -602,7 +647,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('CLS:' + event.options.setting)
+					this.sendCommand('CLS:' + event.options.setting)
 				},
 			},
 			clip_playback_start: {
@@ -610,7 +655,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('APC')
+					this.sendCommand('APC')
 				},
 			},
 			clip_cue: {
@@ -625,7 +670,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('CLQ:' + event.options.setting)
+					this.sendCommand('CLQ:' + event.options.setting)
 				},
 			},
 			clip_delete: {
@@ -640,7 +685,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('CLD:' + event.options.setting)
+					this.sendCommand('CLD:' + event.options.setting)
 				},
 			},
 			bookmark_set: {
@@ -658,7 +703,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('BMK:' + event.options.setting)
+					this.sendCommand('BMK:' + event.options.setting)
 				},
 			},
 			bookmark_delete: {
@@ -666,7 +711,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('DMK')
+					this.sendCommand('DMK')
 				},
 			},
 			switch_input: {
@@ -686,7 +731,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('SLI:' + event.options.setting)
+					this.sendCommand('SLI:' + event.options.setting)
 				},
 			},
 			switch_output: {
@@ -704,7 +749,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('SLO:' + event.options.setting)
+					this.sendCommand('SLO:' + event.options.setting)
 				},
 			},
 			bookmark_next: {
@@ -712,7 +757,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('JNB')
+					this.sendCommand('JNB')
 				},
 			},
 			bookmark_previous: {
@@ -720,7 +765,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('JPB')
+					this.sendCommand('JPB')
 				},
 			},
 			timeline_beginning: {
@@ -728,7 +773,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('JTP')
+					this.sendCommand('JTP')
 				},
 			},
 			timeline_end: {
@@ -736,7 +781,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('JED')
+					this.sendCommand('JED')
 				},
 			},
 			playlist_select: {
@@ -761,7 +806,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('PLS:' + event.options.setting)
+					this.sendCommand('PLS:' + event.options.setting)
 				},
 			},
 			playlist_playback_start: {
@@ -769,7 +814,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('APL')
+					this.sendCommand('APL')
 				},
 			},
 			playlist_stop: {
@@ -777,7 +822,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('SAP')
+					this.sendCommand('SAP')
 				},
 			},
 			palette_select: {
@@ -801,7 +846,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('PLS:' + event.options.palette) //this command is probably wrong, but it's what the manual says
+					this.sendCommand('PLS:' + event.options.palette) //this command is probably wrong, but it's what the manual says
 				},
 			},
 			palette_select: {
@@ -825,7 +870,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('ATP:' + event.options.palette)
+					this.sendCommand('ATP:' + event.options.palette)
 				},
 			},
 			stillimage_playback: {
@@ -857,7 +902,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('STP:' + event.options.still)
+					this.sendCommand('STP:' + event.options.still)
 				},
 			},
 			stillimage_stop: {
@@ -865,7 +910,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('STS')
+					this.sendCommand('STS')
 				},
 			},
 			audioclips_playback: {
@@ -897,7 +942,7 @@ class p20hdInstance extends InstanceBase {
 					},
 				],
 				callback: async (event) => {
-					this.sendCommmand('AUP:' + event.options.clip)
+					this.sendCommand('AUP:' + event.options.clip)
 				},
 			},
 			audioclips_stop: {
@@ -905,7 +950,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('AUS')
+					this.sendCommand('AUS')
 				},
 			},
 			audio_level: {
@@ -922,7 +967,7 @@ class p20hdInstance extends InstanceBase {
 					}
 				],
 				callback: async (event) => {
-					this.sendCommmand('VOL:' + (event.options.level * 10))
+					this.sendCommand('VOL:' + (event.options.level * 10))
 				},
 			},
 			active_sensing: {
@@ -930,7 +975,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('ACS')
+					this.sendCommand('ACS')
 				},
 			},
 			shutdown: {
@@ -938,7 +983,7 @@ class p20hdInstance extends InstanceBase {
 				options: [
 				],
 				callback: async (event) => {
-					this.sendCommmand('EXT')
+					this.sendCommand('EXT')
 				},
 			},
 		}
