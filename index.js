@@ -142,15 +142,25 @@ class p20hdInstance extends InstanceBase {
 					if (this.lastReturnedCommand.indexOf('PSS') > -1) {
 						this.log('error', `The password was probably wrong`);
 					}
+
+					if (this.socket !== undefined) {
+						this.sendCommand('QIT') //close socket
+						this.socket.destroy()
+					}
+			
+					if (this.pollTimer !== undefined) {
+						clearInterval(this.pollTimer)
+						delete this.pollTimer
+					}
 				}
 				else if (pipeline.includes(this.CONTROL_ACK)) { // ACKs are sent at the end of the stream result, we should have 1 command to 1 ack
 					if (this.lastReturnedCommand.indexOf('USR') > -1) { //if the last command was the username command, send the password
 						this.initLoginPassword();
+						this.sendCommand('VER');
 					}
-					else {
-						//if we got an ACK at all, let's assume we're connected
-						this.initCommunication();
-					}
+				}
+				else if ((pipeline.includes('VER')) && (this.lastReturnedCommand.indexOf('PSS') > -1)) { //if the last command was the password command, and the pipeline contains the version string, we are logged in
+					this.initCommunication();
 				}
 
 				this.lastReturnedCommand = this.cmdPipeNext() //returns the last command and runs the next one
@@ -198,7 +208,6 @@ class p20hdInstance extends InstanceBase {
 
 	initCommunication() {
 		if (this.communicationInitiated !== true) {
-			this.sendCommand('VER') //request version
 			this.initPolling()
 			this.updateStatus('ok')
 
