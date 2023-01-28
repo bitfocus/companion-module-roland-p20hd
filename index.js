@@ -137,23 +137,30 @@ class p20hdInstance extends InstanceBase {
 			this.socket.on('data', (receivebuffer) => {
 				pipeline += receivebuffer.toString('utf8')
 
-				// ACKs are sent at the end of the stream result, we should have 1 command to 1 ack
-				if (pipeline.includes(this.CONTROL_ACK)) {
-					if (this.lastSentCommand == 'USR') {
+				if (pipeline.includes(this.CONTROL_NACK)) {
+					this.log('error', `Command ${this.lastReturnedCommand} was not accepted by the device`)
+					if (this.lastReturnedCommand.indexOf('PSS') > -1) {
+						this.log('error', `The password was probably wrong`);
+					}
+				}
+				else if (pipeline.includes(this.CONTROL_ACK)) { // ACKs are sent at the end of the stream result, we should have 1 command to 1 ack
+					if (this.lastReturnedCommand.indexOf('USR') > -1) { //if the last command was the username command, send the password
 						this.initLoginPassword();
 					}
-					else if (this.lastSentCommand == 'PWD') {
+					else {
+						//if we got an ACK at all, let's assume we're connected
 						this.initCommunication();
 					}
-
-					this.lastReturnedCommand = this.cmdPipeNext()
-					if (pipeline.length == 1) pipeline = ''
 				}
 
-				// Every command ends with ; and an ACK or an ACK if nothing needed; `VER` is the only command that won't return an ACK, which we do not use
+				this.lastReturnedCommand = this.cmdPipeNext() //returns the last command and runs the next one
+
+				if (pipeline.length == 1) pipeline = ''
+				
+				// Every command ends with ; and an ACK or an ACK if nothing needed; `VER` is the only command that won't return an ACK
 				if (pipeline.includes(';')) {
 					// multiple rapid Query strings can result in async multiple responses so split response into individual messages
-					// however, the documentation for the V-60 says NOT to send more than 1 command before receiving the ACK from the last one,
+					// however, the documentation says NOT to send more than 1 command before receiving the ACK from the last one,
 					// so we should always have one at a time
 					let allresponses = pipeline.split(';')
 					// last element will either be a partial response, an <ack> (processed next timer tick), or an empty string from split where a complete pipeline ends with ';'
@@ -166,6 +173,7 @@ class p20hdInstance extends InstanceBase {
 						}
 					}
 				}
+							
 			})
 		}
 	}
@@ -181,19 +189,21 @@ class p20hdInstance extends InstanceBase {
 	}
 
 	initLoginUser() {
-		this.lastSentCommand = 'USR';
 		this.sendCommand(`USR:${this.config.username}`); //send username
 	}
 
 	initLoginPassword() {
-		this.lastSentCommand = 'PSS';
 		this.sendCommand(`PSS:${this.config.password}`); //send password
 	}
 
 	initCommunication() {
-		this.sendCommand('VER') //just request version one time
-		this.initPolling()
-		this.updateStatus('ok')
+		if (this.communicationInitiated !== true) {
+			this.sendCommand('VER') //request version
+			this.initPolling()
+			this.updateStatus('ok')
+
+			this.communicationInitiated = true;
+		}		
 	}
 
 	processResponse(response) {
