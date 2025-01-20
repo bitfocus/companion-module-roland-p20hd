@@ -780,6 +780,48 @@ class p20hdInstance extends InstanceBase {
 					}
 				},
 			},
+			clip_action_increase_selected: {
+				name: 'Increase Selected Clip Number',
+				options: [
+					{
+						type: 'number',
+						label: 'Amount',
+						id: 'amount',
+						default: 1,
+						min: 1,
+						max: 512
+					}
+				],
+				callback: async (event) => {
+					let number = this.data.selected_number + event.options.amount
+					if (number > this.data.selected_playlist_length) {
+						number = this.data.selected_playlist_length
+					}
+
+					this.sendCommand('CLS:' + event.options.amount)
+				},
+			},
+			clip_action_decrease_selected: {
+				name: 'Decrease Selected Clip Number',
+				options: [
+					{
+						type: 'number',
+						label: 'Amount',
+						id: 'amount',
+						default: 1,
+						min: 1,
+						max: 512
+					}
+				],
+				callback: async (event) => {
+					let number = this.data.selected_number - event.options.amount
+					if (number < 1) {
+						number = 1
+					}
+
+					this.sendCommand('CLS:' + number)
+				},
+			},
 			play_clip: {
 				name: 'Play Selected Clip',
 				options: [
