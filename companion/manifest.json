@@ -13,18 +13,22 @@
 			"email": "josephdadams@gmail.com"
 		},
 		{
-			"name": "Jan Görgen",
+			"name": "Jan G\u00f6rgen",
 			"email": "jan-goergen@web.de"
 		}
 	],
 	"legacyIds": [],
 	"runtime": {
-		"type": "node18",
+		"type": "node26",
 		"api": "nodejs-ipc",
 		"apiVersion": "0.0.0",
 		"entrypoint": "../index.js"
 	},
 	"manufacturer": "Roland",
-	"products": ["P-20HD"],
-	"keywords": ["Video Replay"]
+	"products": [
+		"P-20HD"
+	],
+	"keywords": [
+		"Video Replay"
+	]
 }
